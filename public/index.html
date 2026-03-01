@@ -1,1 +1,918 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAULT — Bitcoin Wallet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=IBM+Plex+Mono:wght@300;400;500;700&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════════════════════════
+   VAULT — Bitcoin Wallet UI
+   Aesthetic: Bloomberg Terminal × Swiss Watchmaking
+   Dark precision, amber signals, monospace data
+═══════════════════════════════════════════════════ */
 
+:root {
+  --bg:        #050505;
+  --surface:   #0d0d0d;
+  --panel:     #111111;
+  --border:    #1a1a1a;
+  --border2:   #222222;
+  --amber:     #f7931a;
+  --amber-dim: rgba(247,147,26,.12);
+  --amber-glow:rgba(247,147,26,.25);
+  --green:     #10b981;
+  --green-dim: rgba(16,185,129,.1);
+  --red:       #ef4444;
+  --red-dim:   rgba(239,68,68,.1);
+  --blue:      #60a5fa;
+  --text:      #e2e2e2;
+  --text2:     #888;
+  --text3:     #444;
+  --mono:      'IBM Plex Mono', monospace;
+  --display:   'Bebas Neue', sans-serif;
+  --body:      'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 14px;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Scanlines texture ── */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,.03) 2px,
+    rgba(0,0,0,.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* ── Grid background ── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image:
+    linear-gradient(rgba(247,147,26,.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(247,147,26,.018) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ═══ Layout ═══════════════════════════════════════════ */
+
+.app { display: grid; grid-template-rows: 56px 1fr; min-height: 100vh; position: relative; z-index: 1; }
+
+/* ── Top bar ── */
+.topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 28px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(5,5,5,.95);
+  backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.topbar-left { display: flex; align-items: center; gap: 20px; }
+.logo { font-family: var(--display); font-size: 26px; letter-spacing: 3px; color: var(--amber); }
+.net-chip {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  padding: 3px 10px; border-radius: 3px; letter-spacing: 1px;
+  background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(247,147,26,.3);
+}
+.net-chip.testnet { background: rgba(96,165,250,.1); color: var(--blue); border-color: rgba(96,165,250,.3); }
+
+.topbar-right { display: flex; align-items: center; gap: 16px; }
+.price-ticker {
+  font-family: var(--mono); font-size: 13px;
+  display: flex; align-items: center; gap: 8px;
+}
+.price-num { color: var(--text); font-weight: 700; }
+.price-change { font-size: 11px; }
+.price-change.up   { color: var(--green); }
+.price-change.down { color: var(--red); }
+
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green); box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.4} }
+
+/* ── Main ── */
+.main {
+  display: grid;
+  grid-template-columns: 300px 1fr 340px;
+  grid-template-rows: 1fr;
+  gap: 0;
+  height: calc(100vh - 56px);
+  overflow: hidden;
+}
+
+/* ═══ Columns ════════════════════════════════════════════ */
+
+.col { overflow-y: auto; padding: 24px 20px; }
+.col::-webkit-scrollbar { width: 4px; }
+.col::-webkit-scrollbar-track { background: transparent; }
+.col::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.col-left   { border-right: 1px solid var(--border); }
+.col-center { border-right: 1px solid var(--border); padding: 28px 28px; }
+.col-right  { }
+
+/* ═══ Cards ════════════════════════════════════════════ */
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.card-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase;
+}
+.card-head .icon { font-size: 13px; color: var(--amber); }
+.card-body { padding: 16px; }
+
+/* ═══ Balance display ══════════════════════════════════ */
+
+.balance-hero {
+  background: linear-gradient(160deg, #111 0%, #0a0a0a 100%);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 24px 20px;
+  margin-bottom: 12px;
+  position: relative;
+  overflow: hidden;
+}
+.balance-hero::before {
+  content: '₿';
+  position: absolute; right: 14px; top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--display); font-size: 90px;
+  color: rgba(247,147,26,.04); line-height: 1;
+  pointer-events: none;
+}
+.bal-label { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; }
+.bal-btc   { font-family: var(--display); font-size: 42px; letter-spacing: 2px; color: var(--text); line-height: 1; }
+.bal-btc span { color: var(--amber); }
+.bal-usd   { font-family: var(--mono); font-size: 13px; color: var(--text2); margin-top: 6px; }
+
+.addr-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 10px 12px;
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px;
+}
+.addr-text { font-family: var(--mono); font-size: 11px; color: var(--text2); flex: 1; word-break: break-all; }
+.icon-btn {
+  background: none; border: 1px solid var(--border2);
+  color: var(--text2); border-radius: 5px;
+  padding: 4px 8px; cursor: pointer; font-size: 11px;
+  transition: all .2s; white-space: nowrap;
+  font-family: var(--mono);
+}
+.icon-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+/* ═══ Stats row ════════════════════════════════════════ */
+
+.stats-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.stat-box {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 12px 14px;
+}
+.stat-label { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 5px; }
+.stat-val   { font-family: var(--mono); font-size: 13px; font-weight: 700; color: var(--text); }
+.stat-val.green  { color: var(--green); }
+.stat-val.amber  { color: var(--amber); }
+
+/* ═══ Fee bar ══════════════════════════════════════════ */
+
+.fee-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 12px; }
+.fee-opt {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 8px; cursor: pointer;
+  text-align: center; transition: all .2s;
+}
+.fee-opt:hover, .fee-opt.selected {
+  border-color: var(--amber); background: var(--amber-dim);
+}
+.fee-opt .fee-name { font-family: var(--mono); font-size: 9px; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; }
+.fee-opt .fee-val  { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--text); margin-top: 3px; }
+.fee-opt .fee-time { font-size: 10px; color: var(--text2); margin-top: 2px; }
+
+/* ═══ Send form ════════════════════════════════════════ */
+
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-family: var(--mono); font-size: 10px;
+  color: var(--text3); letter-spacing: 1.5px; text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.field input {
+  width: 100%; background: var(--surface);
+  border: 1px solid var(--border2); border-radius: 6px;
+  padding: 11px 14px; color: var(--text); font-family: var(--mono);
+  font-size: 13px; outline: none; transition: border .2s;
+}
+.field input:focus { border-color: var(--amber); }
+.field input::placeholder { color: var(--text3); }
+
+.amount-row { display: flex; gap: 6px; }
+.amount-row input { flex: 1; }
+
+.amount-hint { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 5px; display: flex; justify-content: space-between; }
+.amount-hint .usd { color: var(--amber); }
+
+/* ═══ Buttons ══════════════════════════════════════════ */
+
+.btn {
+  width: 100%; border: none; border-radius: 6px;
+  padding: 13px; font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all .2s; letter-spacing: .5px;
+  font-family: var(--body);
+}
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.btn-primary {
+  background: var(--amber); color: #000; font-weight: 700;
+  box-shadow: 0 0 24px rgba(247,147,26,.2);
+}
+.btn-primary:hover:not(:disabled) { box-shadow: 0 0 36px rgba(247,147,26,.4); filter: brightness(1.06); }
+.btn-ghost {
+  background: transparent; color: var(--text2);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { border-color: var(--border); color: var(--text); }
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn { margin-top: 0; }
+
+.max-btn {
+  background: var(--amber-dim); border: 1px solid rgba(247,147,26,.25);
+  color: var(--amber); border-radius: 6px; padding: 0 14px;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  cursor: pointer; transition: all .2s;
+}
+.max-btn:hover { background: rgba(247,147,26,.2); }
+
+/* ═══ TX Preview box ═══════════════════════════════════ */
+
+.preview-box {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 14px 16px; margin-top: 12px;
+  display: none;
+}
+.preview-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; }
+.preview-row + .preview-row { border-top: 1px solid var(--border); }
+.preview-key { font-family: var(--mono); font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; }
+.preview-val { font-family: var(--mono); font-size: 12px; color: var(--text); font-weight: 500; }
+.preview-val.amber { color: var(--amber); }
+.preview-val.green { color: var(--green); }
+
+/* ═══ TX History ════════════════════════════════════════ */
+
+.tx-list { display: flex; flex-direction: column; gap: 6px; }
+.tx-item {
+  display: grid; grid-template-columns: 28px 1fr auto;
+  gap: 10px; align-items: center;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; padding: 11px 14px;
+  transition: border-color .2s; cursor: default;
+}
+.tx-item:hover { border-color: var(--border2); }
+
+.tx-icon {
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; flex-shrink: 0;
+}
+.tx-icon.recv { background: var(--green-dim); color: var(--green); }
+.tx-icon.sent { background: var(--amber-dim); color: var(--amber); }
+
+.tx-info {}
+.tx-id   { font-family: var(--mono); font-size: 11px; color: var(--text2); }
+.tx-meta { font-size: 11px; color: var(--text3); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+.tx-conf { color: var(--green); font-size: 10px; }
+.tx-pend { color: var(--amber); font-size: 10px; }
+
+.tx-amt { text-align: right; }
+.tx-amt-btc { font-family: var(--mono); font-size: 12px; font-weight: 700; }
+.tx-amt-btc.recv { color: var(--green); }
+.tx-amt-btc.sent { color: var(--amber); }
+.tx-amt-usd { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 2px; }
+
+/* ═══ Response / toast ══════════════════════════════════ */
+
+.toast {
+  position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%);
+  border-radius: 6px; padding: 11px 22px;
+  font-family: var(--mono); font-size: 12px; font-weight: 700;
+  display: none; z-index: 9998; white-space: nowrap;
+  border: 1px solid;
+}
+.toast.ok   { background: var(--green-dim);  border-color: var(--green);  color: var(--green); }
+.toast.err  { background: var(--red-dim);    border-color: var(--red);    color: var(--red);   }
+.toast.info { background: var(--amber-dim);  border-color: var(--amber);  color: var(--amber); }
+
+/* ═══ API Config panel ══════════════════════════════════ */
+
+.config-panel {
+  position: fixed; inset: 0; background: rgba(0,0,0,.85);
+  backdrop-filter: blur(6px); z-index: 200;
+  display: none; align-items: center; justify-content: center;
+}
+.config-panel.open { display: flex; }
+.config-box {
+  background: var(--panel); border: 1px solid var(--border2);
+  border-radius: 10px; width: 420px; padding: 28px;
+}
+.config-title { font-family: var(--display); font-size: 24px; letter-spacing: 2px; margin-bottom: 6px; color: var(--amber); }
+.config-sub   { font-size: 13px; color: var(--text2); margin-bottom: 22px; }
+
+/* ═══ Section headings ═════════════════════════════════ */
+
+.section-head {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  letter-spacing: 2px; text-transform: uppercase;
+  margin-bottom: 14px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-head .refresh-btn {
+  background: none; border: none; color: var(--text3);
+  cursor: pointer; font-size: 13px; padding: 2px 6px;
+  border-radius: 4px; transition: color .2s;
+}
+.section-head .refresh-btn:hover { color: var(--amber); }
+
+/* ═══ Loader ════════════════════════════════════════════ */
+
+.spinner {
+  display: inline-block; width: 12px; height: 12px;
+  border: 2px solid var(--border2); border-top-color: var(--amber);
+  border-radius: 50%; animation: spin .6s linear infinite;
+  vertical-align: middle; margin-right: 5px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.loading-bar {
+  height: 1px; background: var(--border); margin: 10px 0; border-radius: 1px; overflow: hidden;
+}
+.loading-bar::after {
+  content: ''; display: block; height: 100%;
+  width: 40%; background: var(--amber);
+  animation: slide 1s ease-in-out infinite;
+}
+@keyframes slide { 0%{transform:translateX(-100%)}100%{transform:translateX(350%)} }
+
+/* ═══ Empty state ═══════════════════════════════════════ */
+
+.empty {
+  text-align: center; padding: 32px 16px;
+  font-family: var(--mono); font-size: 12px; color: var(--text3);
+}
+.empty-icon { font-size: 26px; margin-bottom: 8px; opacity: .4; }
+
+/* ═══ Divider ═══════════════════════════════════════════ */
+
+.divider { height: 1px; background: var(--border); margin: 14px 0; }
+
+/* ═══ Fade-in animation ════════════════════════════════ */
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fadeUp .4s ease both; }
+
+/* ═══ Responsive ════════════════════════════════════════ */
+
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 280px 1fr; grid-template-rows: auto auto; }
+  .col-right { border-top: 1px solid var(--border); }
+}
+@media (max-width: 720px) {
+  .main { grid-template-columns: 1fr; height: auto; overflow: visible; }
+  .col { border: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════════════
+     TOP BAR
+═════════════════════════════════════════════════════════ -->
+<div class="app">
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo">VAULT</div>
+    <div class="net-chip" id="netChip">MAINNET</div>
+  </div>
+  <div class="topbar-right">
+    <div class="price-ticker">
+      <span style="color:var(--text3);font-size:11px;">BTC</span>
+      <span class="price-num" id="priceNum">—</span>
+      <span class="price-change" id="priceChange"></span>
+    </div>
+    <div class="status-dot" id="statusDot" style="background:var(--text3);box-shadow:none;"></div>
+    <button class="icon-btn" onclick="openConfig()">⚙ Config</button>
+  </div>
+</header>
+
+<!-- ════════════════════════════════════════════════════════
+     MAIN 3-COLUMN LAYOUT
+═════════════════════════════════════════════════════════ -->
+<main class="main">
+
+  <!-- LEFT — Wallet Overview -->
+  <aside class="col col-left">
+
+    <div class="balance-hero fade-up">
+      <div class="bal-label">Total Balance</div>
+      <div class="bal-btc" id="balBtc"><span>—</span></div>
+      <div class="bal-usd" id="balUsd">Connect API to load</div>
+      <div class="addr-box">
+        <div class="addr-text" id="walletAddr">Not connected</div>
+        <button class="icon-btn" onclick="copyAddr()">Copy</button>
+      </div>
+    </div>
+
+    <div class="stats-row fade-up" style="animation-delay:.08s">
+      <div class="stat-box">
+        <div class="stat-label">Confirmed</div>
+        <div class="stat-val green" id="statConfirmed">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">Unconfirmed</div>
+        <div class="stat-val amber" id="statUnconfirmed">—</div>
+      </div>
+    </div>
+
+    <div class="stats-row fade-up" style="animation-delay:.12s">
+      <div class="stat-box">
+        <div class="stat-label">USD Value</div>
+        <div class="stat-val" id="statUsd">—</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-label">UTXOs</div>
+        <div class="stat-val" id="statUtxos">—</div>
+      </div>
+    </div>
+
+    <div class="fade-up" style="animation-delay:.16s">
+      <div class="section-head">Network Fees <button class="refresh-btn" onclick="loadFees()">↻</button></div>
+      <div class="fee-row" id="feeRow">
+        <div class="fee-opt selected" data-speed="slow" onclick="selectFee(this)">
+          <div class="fee-name">Slow</div>
+          <div class="fee-val" id="feeSlow">—</div>
+          <div class="fee-time">~1 day</div>
+        </div>
+        <div class="fee-opt" data-speed="medium" onclick="selectFee(this)">
+          <div class="fee-name">Medium</div>
+          <div class="fee-val" id="feeMed">—</div>
+          <div class="fee-time">~1 hr</div>
+        </div>
+        <div class="fee-opt" data-speed="fast" onclick="selectFee(this)">
+          <div class="fee-name">Fast</div>
+          <div class="fee-val" id="feeFast">—</div>
+          <div class="fee-time">~10 min</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:4px" class="fade-up" style="animation-delay:.2s">
+      <button class="btn btn-ghost" onclick="loadWallet()" style="font-family:var(--mono);font-size:11px;letter-spacing:1px;">
+        ↻ REFRESH BALANCE
+      </button>
+    </div>
+
+  </aside>
+
+  <!-- CENTER — Send -->
+  <section class="col col-center">
+
+    <div class="section-head">Send Bitcoin</div>
+
+    <div class="field">
+      <label>Recipient Address</label>
+      <input type="text" id="toAddr" placeholder="bc1q... or 1A... or 3P..." autocomplete="off" spellcheck="false">
+    </div>
+
+    <div class="field">
+      <label>Amount (BTC)</label>
+      <div class="amount-row">
+        <input type="number" id="sendAmt" placeholder="0.00000000" step="0.00000001" min="0" oninput="updateAmtHint()">
+        <button class="max-btn" onclick="setMax()">MAX</button>
+      </div>
+      <div class="amount-hint">
+        <span id="amtSats">0 sat</span>
+        <span class="usd" id="amtUsd">≈ $0</span>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Fee Speed</label>
+      <div class="fee-row" id="sendFeeRow" style="margin-bottom:0">
+        <div class="fee-opt" data-speed="slow" onclick="selectSendFee(this)">
+          <div class="fee-name">Slow</div>
+          <div class="fee-val" id="sf-slow">—</div>
+          <div class="fee-time">~1 day</div>
+        </div>
+        <div class="fee-opt selected" data-speed="medium" onclick="selectSendFee(this)">
+          <div class="fee-name">Medium</div>
+          <div class="fee-val" id="sf-med">—</div>
+          <div class="fee-time">~1 hr</div>
+        </div>
+        <div class="fee-opt" data-speed="fast" onclick="selectSendFee(this)">
+          <div class="fee-name">Fast</div>
+          <div class="fee-val" id="sf-fast">—</div>
+          <div class="fee-time">~10 min</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="preview-box" id="previewBox">
+      <div class="preview-row">
+        <span class="preview-key">To</span>
+        <span class="preview-val amber" id="pvTo">—</span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-key">Amount</span>
+        <span class="preview-val" id="pvAmt">—</span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-key">Network Fee</span>
+        <span class="preview-val" id="pvFee">—</span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-key">Change Back</span>
+        <span class="preview-val green" id="pvChange">—</span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-key">TX Size</span>
+        <span class="preview-val" id="pvSize">—</span>
+      </div>
+      <div class="preview-row">
+        <span class="preview-key">TX ID</span>
+        <span class="preview-val" id="pvTxid" style="font-size:10px;word-break:break-all;">—</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="buildPreview()" id="previewBtn">Preview TX</button>
+      <button class="btn btn-primary" onclick="sendBtc()" id="sendBtn">⚡ Send Bitcoin</button>
+    </div>
+
+    <div id="sendStatus" style="margin-top:14px;display:none;"></div>
+
+  </section>
+
+  <!-- RIGHT — Transaction History -->
+  <aside class="col col-right">
+
+    <div class="section-head">
+      Transactions
+      <button class="refresh-btn" onclick="loadHistory()">↻</button>
+    </div>
+
+    <div id="txListWrap">
+      <div class="empty"><div class="empty-icon">📋</div>Connect wallet to view history</div>
+    </div>
+
+  </aside>
+
+</main>
+</div><!-- /.app -->
+
+<!-- ════════════════════════════════════════════════════════
+     CONFIG MODAL
+═════════════════════════════════════════════════════════ -->
+<div class="config-panel" id="configPanel">
+  <div class="config-box">
+    <div class="config-title">CONFIGURE</div>
+    <div class="config-sub">Connect to your VAULT backend API</div>
+
+    <div class="field">
+      <label>Backend URL</label>
+      <input type="text" id="cfgUrl" placeholder="http://localhost:3001" value="http://localhost:3001">
+    </div>
+    <div class="field">
+      <label>API Secret Key</label>
+      <input type="password" id="cfgKey" placeholder="Your API_SECRET_KEY from .env">
+    </div>
+
+    <div class="btn-row" style="margin-top:8px;">
+      <button class="btn btn-ghost" onclick="closeConfig()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveConfig()">Connect →</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ════════════════════════════════════════════════════════
+     JAVASCRIPT
+═════════════════════════════════════════════════════════ -->
+<script>
+/* ── State ────────────────────────────────────────────── */
+const S = {
+  url:          localStorage.getItem('vault_url')  || 'http://localhost:3001',
+  key:          localStorage.getItem('vault_key')  || '',
+  balance:      0,
+  btcPrice:     0,
+  selectedFee:  'medium',
+  connected:    false,
+};
+
+/* ── API client ───────────────────────────────────────── */
+async function api(path, opts = {}) {
+  const res = await fetch(S.url + path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', 'X-API-Key': S.key, ...opts.headers },
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+/* ── Config ───────────────────────────────────────────── */
+function openConfig() { document.getElementById('cfgUrl').value = S.url; document.getElementById('cfgKey').value = S.key; document.getElementById('configPanel').classList.add('open'); }
+function closeConfig() { document.getElementById('configPanel').classList.remove('open'); }
+async function saveConfig() {
+  S.url = document.getElementById('cfgUrl').value.replace(/\/$/, '');
+  S.key = document.getElementById('cfgKey').value.trim();
+  localStorage.setItem('vault_url', S.url);
+  localStorage.setItem('vault_key', S.key);
+  closeConfig();
+  await init();
+}
+
+/* ── Init ─────────────────────────────────────────────── */
+async function init() {
+  setStatus(false);
+  try {
+    const h = await api('/api/health');
+    setStatus(true);
+    const chip = document.getElementById('netChip');
+    chip.textContent = h.network.toUpperCase();
+    chip.className = 'net-chip' + (h.network === 'testnet' ? ' testnet' : '');
+    if (!h.wallet_ready) { toast('Wallet not configured on server', 'info'); return; }
+    await Promise.all([loadWallet(), loadFees(), loadHistory(), loadPrice()]);
+  } catch (e) {
+    toast('Cannot connect — check Config ⚙', 'err');
+  }
+}
+
+function setStatus(ok) {
+  const d = document.getElementById('statusDot');
+  d.style.background    = ok ? 'var(--green)' : 'var(--text3)';
+  d.style.boxShadow     = ok ? '0 0 8px var(--green)' : 'none';
+  S.connected = ok;
+}
+
+/* ── Load wallet balance ──────────────────────────────── */
+async function loadWallet() {
+  try {
+    const d = await api('/api/wallet');
+    const b = d.balance;
+    S.balance  = parseFloat(b.confirmed_btc);
+    S.btcPrice = b.btc_price_usd || S.btcPrice;
+
+    document.getElementById('walletAddr').textContent = d.address;
+    document.getElementById('balBtc').innerHTML = `<span>${parseFloat(b.confirmed_btc).toLocaleString('en',{minimumFractionDigits:8})}</span> BTC`;
+    document.getElementById('balUsd').textContent = b.confirmed_usd ? `≈ $${parseFloat(b.confirmed_usd).toLocaleString('en',{minimumFractionDigits:2,maximumFractionDigits:2})} USD` : '';
+    document.getElementById('statConfirmed').textContent   = b.confirmed_btc + ' BTC';
+    document.getElementById('statUnconfirmed').textContent = b.unconfirmed_sat ? b.unconfirmed_btc + ' BTC' : '0.00000000';
+    document.getElementById('statUsd').textContent = b.confirmed_usd ? '$' + parseFloat(b.confirmed_usd).toLocaleString() : '—';
+
+    // UTXO count
+    try {
+      const u = await api('/api/wallet/utxos');
+      document.getElementById('statUtxos').textContent = u.utxo_count;
+    } catch {}
+  } catch (e) { toast(e.message, 'err'); }
+}
+
+/* ── Price ticker ─────────────────────────────────────── */
+async function loadPrice() {
+  try {
+    const d = await api('/api/market');
+    if (!d.btc_usd) return;
+    S.btcPrice = d.btc_usd;
+    document.getElementById('priceNum').textContent = '$' + d.btc_usd.toLocaleString('en', {minimumFractionDigits:0});
+    if (d.change_24h !== null) {
+      const ch = d.change_24h.toFixed(2);
+      const el = document.getElementById('priceChange');
+      el.textContent = (d.change_24h >= 0 ? '▲' : '▼') + ' ' + Math.abs(ch) + '%';
+      el.className = 'price-change ' + (d.change_24h >= 0 ? 'up' : 'down');
+    }
+  } catch {}
+}
+
+/* ── Load fees ────────────────────────────────────────── */
+async function loadFees() {
+  try {
+    const d = await api('/api/wallet/fees');
+    const f = d.sat_per_vbyte;
+    const setFee = (id, val) => {
+      document.getElementById(id).textContent = val + ' s/vb';
+    };
+    setFee('feeSlow',  f.slow);   setFee('sf-slow',  f.slow);
+    setFee('feeMed',   f.medium); setFee('sf-med',   f.medium);
+    setFee('feeFast',  f.fast);   setFee('sf-fast',  f.fast);
+  } catch {}
+}
+
+/* ── Load history ─────────────────────────────────────── */
+async function loadHistory() {
+  const wrap = document.getElementById('txListWrap');
+  wrap.innerHTML = '<div class="loading-bar"></div>';
+  try {
+    const d = await api('/api/tx/history?limit=30');
+    if (!d.transactions.length) {
+      wrap.innerHTML = '<div class="empty"><div class="empty-icon">📭</div>No transactions yet</div>';
+      return;
+    }
+    wrap.innerHTML = `<div class="tx-list">${d.transactions.map(tx => {
+      const dir   = tx.type === 'received' ? 'recv' : 'sent';
+      const sign  = dir === 'recv' ? '+' : '−';
+      const date  = tx.timestamp ? new Date(tx.timestamp).toLocaleDateString('en', {month:'short',day:'numeric'}) : '—';
+      const usd   = S.btcPrice ? '$' + (parseFloat(tx.amount_btc) * S.btcPrice).toLocaleString('en',{maximumFractionDigits:0}) : '';
+      return `
+      <a class="tx-item" href="${tx.explorer_url}" target="_blank" style="text-decoration:none;color:inherit;">
+        <div class="tx-icon ${dir}">${dir === 'recv' ? '↙' : '↗'}</div>
+        <div class="tx-info">
+          <div class="tx-id">${tx.txid.slice(0,12)}…${tx.txid.slice(-6)}</div>
+          <div class="tx-meta">
+            ${tx.confirmed ? '<span class="tx-conf">● Confirmed</span>' : '<span class="tx-pend">● Pending</span>'}
+            <span>${date}</span>
+          </div>
+        </div>
+        <div class="tx-amt">
+          <div class="tx-amt-btc ${dir}">${sign}${parseFloat(tx.amount_btc).toFixed(6)}</div>
+          <div class="tx-amt-usd">${usd}</div>
+        </div>
+      </a>`;
+    }).join('')}</div>`;
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty" style="color:var(--red);">${e.message}</div>`;
+  }
+}
+
+/* ── Amount hint ──────────────────────────────────────── */
+function updateAmtHint() {
+  const btc = parseFloat(document.getElementById('sendAmt').value) || 0;
+  document.getElementById('amtSats').textContent = Math.round(btc * 1e8).toLocaleString() + ' sat';
+  document.getElementById('amtUsd').textContent  = S.btcPrice ? '≈ $' + (btc * S.btcPrice).toLocaleString('en',{maximumFractionDigits:2}) : '';
+}
+
+function setMax() {
+  document.getElementById('sendAmt').value = Math.max(0, S.balance - 0.00002).toFixed(8);
+  updateAmtHint();
+}
+
+/* ── Fee selection ────────────────────────────────────── */
+function selectFee(el) {
+  document.querySelectorAll('#feeRow .fee-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+}
+function selectSendFee(el) {
+  document.querySelectorAll('#sendFeeRow .fee-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  S.selectedFee = el.dataset.speed;
+}
+
+/* ── Build preview ────────────────────────────────────── */
+async function buildPreview() {
+  const to  = document.getElementById('toAddr').value.trim();
+  const amt = document.getElementById('sendAmt').value;
+  if (!to || !amt) return toast('Enter address and amount', 'info');
+
+  const btn = document.getElementById('previewBtn');
+  btn.textContent = 'Building…'; btn.disabled = true;
+
+  try {
+    const d = await api('/api/tx/build', {
+      method: 'POST',
+      body: JSON.stringify({ to_address: to, amount_btc: parseFloat(amt), fee_rate: S.selectedFee }),
+    });
+    const p = d.preview;
+    const box = document.getElementById('previewBox');
+    document.getElementById('pvTo').textContent     = p.to.slice(0,16) + '…' + p.to.slice(-8);
+    document.getElementById('pvAmt').textContent    = p.amount_btc + ' BTC  (' + p.amount_sat.toLocaleString() + ' sat)';
+    document.getElementById('pvFee').textContent    = p.fee_btc + ' BTC  (' + p.fee_sat + ' sat @ ' + p.sat_per_vbyte + ' s/vb)';
+    document.getElementById('pvChange').textContent = p.change_btc + ' BTC';
+    document.getElementById('pvSize').textContent   = p.vsize + ' vbytes';
+    document.getElementById('pvTxid').textContent   = d.tx_id;
+    box.style.display = 'block';
+  } catch (e) { toast(e.message, 'err'); }
+
+  btn.textContent = 'Preview TX'; btn.disabled = false;
+}
+
+/* ── SEND ─────────────────────────────────────────────── */
+async function sendBtc() {
+  const to  = document.getElementById('toAddr').value.trim();
+  const amt = document.getElementById('sendAmt').value;
+  if (!to)  return toast('Enter recipient address', 'info');
+  if (!amt || parseFloat(amt) <= 0) return toast('Enter amount', 'info');
+
+  const btn = document.getElementById('sendBtn');
+  const statusEl = document.getElementById('sendStatus');
+  btn.disabled = true; btn.textContent = '⏳ Signing…';
+  statusEl.style.display = 'none';
+
+  try {
+    const d = await api('/api/tx/send', {
+      method: 'POST',
+      body: JSON.stringify({ to_address: to, amount_btc: parseFloat(amt), fee_rate: S.selectedFee }),
+    });
+
+    statusEl.style.display = 'block';
+    statusEl.innerHTML = `
+      <div class="preview-box" style="display:block;border-color:var(--green);">
+        <div class="preview-row">
+          <span class="preview-key">Status</span>
+          <span class="preview-val green">✓ Broadcast</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">Amount</span>
+          <span class="preview-val">${d.details.amount_btc} BTC</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">Fee</span>
+          <span class="preview-val">${d.details.fee_btc} BTC</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">TXID</span>
+          <span class="preview-val" style="font-size:10px;word-break:break-all;">${d.txid}</span>
+        </div>
+        <div class="preview-row">
+          <span class="preview-key">Explorer</span>
+          <a href="${d.explorer_url}" target="_blank" style="font-family:var(--mono);font-size:10px;color:var(--amber);">View →</a>
+        </div>
+      </div>`;
+
+    document.getElementById('toAddr').value  = '';
+    document.getElementById('sendAmt').value = '';
+    document.getElementById('previewBox').style.display = 'none';
+    toast('✓ Sent — check explorer', 'ok');
+    setTimeout(() => { loadWallet(); loadHistory(); }, 3000);
+  } catch (e) {
+    toast(e.message, 'err');
+  }
+
+  btn.disabled = false; btn.textContent = '⚡ Send Bitcoin';
+}
+
+/* ── Copy address ─────────────────────────────────────── */
+function copyAddr() {
+  const addr = document.getElementById('walletAddr').textContent;
+  navigator.clipboard.writeText(addr);
+  toast('Address copied', 'ok');
+}
+
+/* ── Toast ────────────────────────────────────────────── */
+let _toastTimer;
+function toast(msg, type = 'info') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className   = `toast ${type}`;
+  el.style.display = 'block';
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => el.style.display = 'none', 3200);
+}
+
+/* ── Init ─────────────────────────────────────────────── */
+window.addEventListener('DOMContentLoaded', () => {
+  if (!S.url || !S.key) { openConfig(); return; }
+  init();
+  setInterval(loadPrice, 30000);
+});
+</script>
+</body>
+</html>
