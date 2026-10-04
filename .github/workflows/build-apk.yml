@@ -1,4 +1,4 @@
-Name: 📦 Build Nora Tunnel APK
+name: 📦 Build Nora Tunnel APK
 
 on:
   push:
@@ -186,7 +186,7 @@ jobs:
           tag_name: v1.0.0-build-${{ github.run_number }}
           name: NORA TUNNEL v1.0.0 Build ${{ github.run_number }}
           body: |
-            🛡️ **NORA TUNNEL** — Secure. Private. Connected.
+            🛡️️ **NORA TUNNEL** — Secure. Private. Connected.
 
             ## Changes
             Automated build from commit ${{ github.sha }}
