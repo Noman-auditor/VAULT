@@ -1,4 +1,4 @@
-name: 📦 Build Nora Tunnel APK
+Name: 📦 Build Nora Tunnel APK
 
 on:
   push:
@@ -162,7 +162,6 @@ jobs:
           echo "- Release APK: Unsigned — must be signed before distribution" >> $GITHUB_STEP_SUMMARY
           echo "- No test credentials, no fake servers, no hidden telemetry" >> $GITHUB_STEP_SUMMARY
 
-  # Create a GitHub Release with APK on main branch pushes
   create-release:
     name: 🚀 Create Release
     runs-on: ubuntu-latest
@@ -184,7 +183,7 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.0-${{ github.run_number }}
+          tag_name: v1.0.0-build-${{ github.run_number }}
           name: NORA TUNNEL v1.0.0 Build ${{ github.run_number }}
           body: |
             🛡️ **NORA TUNNEL** — Secure. Private. Connected.
